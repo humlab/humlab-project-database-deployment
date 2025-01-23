@@ -1,0 +1,6 @@
+[submodule "humlab-project-database-server"]
+	path = humlab-project-database-server
+	url = https://github.com/humlab/humlab-project-database-server
+[submodule "humlab-project-database-client"]
+	path = humlab-project-database-client
+	url = https://github.com/humlab/humlab-project-database-client
