@@ -1,0 +1,5 @@
+*.env
+*.submodule/
+client/.git
+server/.git
+mounts/mong/data
