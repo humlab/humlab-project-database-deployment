@@ -212,26 +212,53 @@ def start_mongo():
     compose("up", "-d", "--build", "mongo")
 
 def wait_for_mongo():
+    """
+    Wait in two phases:
+    1. Wait until mongod accepts connections (ping without credentials).
+       This can succeed during MongoDB's init phase before the root user exists.
+    2. Wait until the root user credentials from .env are actually valid.
+       This ensures mongorestore can authenticate.
+    """
     print_step("Waiting for MongoDB to become ready")
+    env = load_env()
     binary = detect_compose_binary()
+
+    # Phase 1: wait for mongod to accept connections at all
     for attempt in range(1, 31):
-        # db.adminCommand('ping') does not require authentication — avoids
-        # false failures when credentials differ from the stored password.
+        result = subprocess.run(
+            [*binary, "exec", "-T", "mongo", "mongosh", "--quiet",
+             "--eval", "db.adminCommand('ping')"],
+            cwd=ROOT, capture_output=True,
+        )
+        if result.returncode == 0:
+            break
+        print(f"  Phase 1 — attempt {attempt}/30, waiting 2 s …", end="\r")
+        time.sleep(2)
+    else:
+        print_err("MongoDB did not start in time. Check logs with: podman compose logs mongo")
+        sys.exit(1)
+
+    # Phase 2: wait until the root user from .env is accepted
+    # MongoDB Docker initialises users during first-run setup; this can take
+    # several seconds after the port becomes reachable.
+    for attempt in range(1, 31):
         result = subprocess.run(
             [
                 *binary, "exec", "-T", "mongo",
                 "mongosh", "--quiet",
+                f"--username={env['MONGO_ROOT_USERNAME']}",
+                f"--password={env['MONGO_ROOT_PASSWORD']}",
+                "--authenticationDatabase=admin",
                 "--eval", "db.adminCommand('ping')",
             ],
-            cwd=ROOT,
-            capture_output=True,
+            cwd=ROOT, capture_output=True,
         )
         if result.returncode == 0:
-            print_ok(f"MongoDB ready (attempt {attempt})")
+            print_ok(f"MongoDB ready and credentials verified (attempt {attempt})")
             return
-        print(f"  Attempt {attempt}/30 — waiting 2 s …", end="\r")
+        print(f"  Phase 2 — attempt {attempt}/30, waiting 2 s …", end="\r")
         time.sleep(2)
-    print_err("MongoDB did not become ready in time. Check logs with: podman compose logs mongo")
+    print_err("MongoDB credentials from .env never authenticated. Check logs with: podman compose logs mongo")
     sys.exit(1)
 
 def restore_mongodb():
