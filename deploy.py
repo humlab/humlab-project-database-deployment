@@ -3,7 +3,7 @@
 humlab-project-database-deployment helper script.
 
 Usage:
-  ./deploy.py install   — set up and start everything on a fresh machine
+  ./deploy.py install   — clone repos, configure, and start everything on a fresh machine
   ./deploy.py save-db   — dump the running MongoDB into showcase-mongodb-dump.archive
 """
 
@@ -66,6 +66,17 @@ def detect_compose_binary():
     print_err("Neither 'podman compose' nor 'docker compose' found. Please install one and retry.")
     sys.exit(1)
 
+REPOS = [
+    {
+        "url": "https://github.com/humlab/humlab-project-database-client",
+        "dir": "client",
+    },
+    {
+        "url": "https://github.com/humlab/humlab-project-database-server",
+        "dir": "server",
+    },
+]
+
 # ── steps ────────────────────────────────────────────────────────────────────
 
 def check_prerequisites():
@@ -73,21 +84,35 @@ def check_prerequisites():
     binary = detect_compose_binary()
     print_ok(f"Compose binary: {' '.join(binary)}")
 
+    if not shutil.which("git"):
+        print_err("'git' not found. Please install git and retry.")
+        sys.exit(1)
+    print_ok("git found")
+
     if not ARCHIVE.exists():
         print_warn(f"MongoDB archive not found: {ARCHIVE.name}  (skipping restore)")
     else:
         print_ok(f"MongoDB archive found: {ARCHIVE.name}")
 
-    client_dir = ROOT / "client"
-    if not client_dir.exists():
-        print_warn(
-            "The 'client/' directory is missing. It is excluded from git.\n"
-            "  Clone or copy the client repository into client/ before continuing,\n"
-            "  or the build will fail."
-        )
-        answer = input("\n  Continue anyway? [y/N] ").strip().lower()
-        if answer != "y":
-            sys.exit(0)
+
+def clone_repos():
+    print_step("Cloning / updating source repositories")
+    for repo in REPOS:
+        target = ROOT / repo["dir"]
+        if (target / ".git").exists():
+            print(f"  {repo['dir']}/ already cloned — pulling latest …")
+            run(["git", "-C", str(target), "pull", "--ff-only"])
+            print_ok(f"{repo['dir']}/ up to date")
+        elif target.exists() and any(target.iterdir()):
+            print_warn(
+                f"  {repo['dir']}/ exists but is not a git repo — skipping clone.\n"
+                f"  Remove or empty the directory to allow a fresh clone."
+            )
+        else:
+            target.mkdir(parents=True, exist_ok=True)
+            print(f"  Cloning {repo['url']} → {repo['dir']}/ …")
+            run(["git", "clone", repo["url"], str(target)])
+            print_ok(f"{repo['dir']}/ cloned")
 
 def create_env():
     print_step("Configuring environment (.env)")
@@ -269,6 +294,7 @@ def load_env():
 def cmd_install():
     print("\033[1m=== Humlab Project Database — Install ===\033[0m")
     check_prerequisites()
+    clone_repos()
     create_env()
     create_directories()
     copy_archive()
