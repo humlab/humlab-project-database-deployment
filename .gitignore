@@ -3,3 +3,7 @@
 client/.git
 server/.git
 mounts/mongo/data
+client
+server
+.vscode/
+__pycache__/
