@@ -122,6 +122,16 @@ def create_env():
         if answer != "y":
             print_ok("Keeping existing .env")
             return
+        if any(MONGO_DATA_DIR.iterdir()) if MONGO_DATA_DIR.exists() else False:
+            print_warn(
+                "MongoDB data directory already exists. If you change the\n"
+                "  MONGO_ROOT_PASSWORD, the existing database will reject the new\n"
+                "  credentials. To start fresh, stop the containers and delete:\n"
+                f"    {MONGO_DATA_DIR.relative_to(ROOT)}"
+            )
+            answer2 = input("  Continue anyway? [y/N] ").strip().lower()
+            if answer2 != "y":
+                sys.exit(0)
 
     print("  Press Enter to accept [defaults] or type a new value.\n")
 
@@ -175,14 +185,13 @@ def start_mongo():
 def wait_for_mongo():
     print_step("Waiting for MongoDB to become ready")
     binary = detect_compose_binary()
-    env = load_env()
     for attempt in range(1, 31):
+        # db.adminCommand('ping') does not require authentication — avoids
+        # false failures when credentials differ from the stored password.
         result = subprocess.run(
             [
                 *binary, "exec", "-T", "mongo",
                 "mongosh", "--quiet",
-                f"--username={env['MONGO_ROOT_USERNAME']}",
-                f"--password={env['MONGO_ROOT_PASSWORD']}",
                 "--eval", "db.adminCommand('ping')",
             ],
             cwd=ROOT,
