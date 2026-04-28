@@ -397,6 +397,22 @@ def load_env():
 
 # ── main ─────────────────────────────────────────────────────────────────────
 
+def cmd_up():
+    env = load_env()
+    mode = env.get("MODE", "prod").lower()
+    print(f"\033[1m=== Humlab Project Database — Up ({mode}) ===\033[0m")
+    check_prerequisites()
+    compose("up", "-d", "--build")
+    print_summary()
+
+
+def cmd_down():
+    print("\033[1m=== Humlab Project Database — Down ===\033[0m")
+    check_prerequisites()
+    compose("down")
+    print_ok("All services stopped")
+
+
 def cmd_install():
     print("\033[1m=== Humlab Project Database — Install ===\033[0m")
     check_prerequisites()
@@ -424,12 +440,18 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
     subparsers.add_parser("install", help="Set up and start everything on a fresh machine")
+    subparsers.add_parser("up",      help="Start all services (uses MODE from .env)")
+    subparsers.add_parser("down",    help="Stop all services")
     subparsers.add_parser("save-db", help="Dump the running MongoDB into showcase-mongodb-dump.archive")
 
     args = parser.parse_args()
 
     if args.command == "install":
         cmd_install()
+    elif args.command == "up":
+        cmd_up()
+    elif args.command == "down":
+        cmd_down()
     elif args.command == "save-db":
         cmd_save_db()
     else:
