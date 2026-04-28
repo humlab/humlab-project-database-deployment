@@ -61,38 +61,54 @@ def compose(*args):
 
 def detect_compose_binary():
     """
-    Return the first compose binary that (a) exists and (b) can actually reach
-    the container runtime.  'version' exits 0 without a daemon, so we use 'ps'
-    (which reads docker-compose.yml and talks to the socket) as the real test.
+    Return the first compose binary whose underlying runtime is reachable.
+
+    Strategy:
+    1. Check if the container runtime itself responds ('podman info' / 'docker info').
+       This doesn't need a compose file or .env, so it works before install runs.
+    2. Among runtimes that responded, find a compose binary whose 'version' exits 0.
     """
-    tried = []
+    # --- Step 1: is any runtime reachable? ---
+    runtime_ok = False
+    runtime_name = None
+    for rt in (["podman"], ["docker"]):
+        if not shutil.which(rt[0]):
+            continue
+        result = subprocess.run(rt + ["info"], capture_output=True)
+        if result.returncode == 0:
+            runtime_ok = True
+            runtime_name = rt[0]
+            break
+
+    if not runtime_ok:
+        if shutil.which("podman"):
+            xdg = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+            sock = f"{xdg}/podman/podman.sock"
+            print_err("Podman is installed but the socket is not running. Fix with:")
+            print_err("    systemctl --user enable --now podman.socket")
+            print_err(f"    export DOCKER_HOST=unix://{sock}")
+            print_err("Then re-run this script.")
+        elif shutil.which("docker"):
+            print_err("Docker is installed but the daemon is not running. Fix with:")
+            print_err("    sudo systemctl enable --now docker")
+        else:
+            print_err("Install podman or docker, then re-run this script.")
+        sys.exit(1)
+
+    # --- Step 2: find a working compose binary ---
     for candidate in (["podman", "compose"], ["docker", "compose"], ["docker-compose"]):
         if not shutil.which(candidate[0]):
             continue
-        # Quick check: does the subcommand/plugin exist?
-        ver = subprocess.run(candidate + ["version"], capture_output=True)
-        if ver.returncode != 0:
-            continue
-        # Real check: can it reach the container runtime?
-        ps = subprocess.run(candidate + ["ps"], capture_output=True, cwd=ROOT)
-        if ps.returncode == 0:
+        result = subprocess.run(candidate + ["version"], capture_output=True)
+        if result.returncode == 0:
             return candidate
-        tried.append(" ".join(candidate))
 
-    # Nothing worked — print actionable guidance
-    print_err("Could not connect to a container runtime (tried: " + ", ".join(tried or ["none found"]) + ").")
-    if shutil.which("podman"):
-        xdg = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
-        sock = f"{xdg}/podman/podman.sock"
-        print_err("Podman is installed but the socket is not running. Fix with:")
-        print_err("    systemctl --user enable --now podman.socket")
-        print_err(f"    export DOCKER_HOST=unix://{sock}")
-        print_err("Then re-run this script.")
-    elif shutil.which("docker"):
-        print_err("Docker is installed but the daemon is not running. Fix with:")
-        print_err("    sudo systemctl enable --now docker")
+    print_err(f"Runtime '{runtime_name}' is running but no compose binary was found.")
+    print_err("Install the compose plugin with:")
+    if runtime_name == "podman":
+        print_err("    sudo apt-get install podman-compose   # or: pip install podman-compose")
     else:
-        print_err("Install podman or docker, then re-run this script.")
+        print_err("    sudo apt-get install docker-compose-plugin")
     sys.exit(1)
 
 REPOS = [
