@@ -34,6 +34,7 @@ services:
       - "3100"
     volumes:
       - ./server:/app
+      - /app/node_modules
     environment:
       MONGO_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongo:27017
       PORT: 3100
