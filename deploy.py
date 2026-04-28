@@ -56,14 +56,39 @@ def compose(*args):
     run([*binary, *args], cwd=ROOT)
 
 def detect_compose_binary():
+    """
+    Return the first compose binary that (a) exists and (b) can actually reach
+    the container runtime.  'version' exits 0 without a daemon, so we use 'ps'
+    (which reads docker-compose.yml and talks to the socket) as the real test.
+    """
+    tried = []
     for candidate in (["podman", "compose"], ["docker", "compose"], ["docker-compose"]):
-        if shutil.which(candidate[0]):
-            try:
-                subprocess.run(candidate + ["version"], capture_output=True, check=True)
-                return candidate
-            except subprocess.CalledProcessError:
-                pass
-    print_err("Neither 'podman compose' nor 'docker compose' found. Please install one and retry.")
+        if not shutil.which(candidate[0]):
+            continue
+        # Quick check: does the subcommand/plugin exist?
+        ver = subprocess.run(candidate + ["version"], capture_output=True)
+        if ver.returncode != 0:
+            continue
+        # Real check: can it reach the container runtime?
+        ps = subprocess.run(candidate + ["ps"], capture_output=True, cwd=ROOT)
+        if ps.returncode == 0:
+            return candidate
+        tried.append(" ".join(candidate))
+
+    # Nothing worked — print actionable guidance
+    print_err("Could not connect to a container runtime (tried: " + ", ".join(tried or ["none found"]) + ").")
+    if shutil.which("podman"):
+        xdg = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+        sock = f"{xdg}/podman/podman.sock"
+        print_err("Podman is installed but the socket is not running. Fix with:")
+        print_err("    systemctl --user enable --now podman.socket")
+        print_err(f"    export DOCKER_HOST=unix://{sock}")
+        print_err("Then re-run this script.")
+    elif shutil.which("docker"):
+        print_err("Docker is installed but the daemon is not running. Fix with:")
+        print_err("    sudo systemctl enable --now docker")
+    else:
+        print_err("Install podman or docker, then re-run this script.")
     sys.exit(1)
 
 REPOS = [
