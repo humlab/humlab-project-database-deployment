@@ -12,13 +12,11 @@ services:
 
   client:
     build:
-      context: ./client/web
+      context: ./client
       dockerfile: docker/Dockerfile
       target: prod
     expose:
       - "80"
-    volumes:
-      - ./client/src/assets:/usr/share/nginx/html/assets:ro
     depends_on:
       - server
 

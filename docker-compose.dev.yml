@@ -8,7 +8,7 @@ services:
 
   client:
     build:
-      context: ./client/web
+      context: ./client
       dockerfile: docker/Dockerfile
       target: dev
     expose:
@@ -16,6 +16,5 @@ services:
     environment:
       VITE_API_BASE_URL: /api
     volumes:
-      - ./client/web:/app:Z
+      - ./client:/app:Z
       - /app/node_modules
-      - ./client/src/assets:/app/public/assets:ro
