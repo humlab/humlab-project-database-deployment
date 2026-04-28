@@ -134,6 +134,10 @@ def create_env():
     jwt_secret  = secrets.token_urlsafe(32)
     print(f"  Admin JWT secret: [auto-generated]")
 
+    print()
+    port_app           = prompt("  Public port (nginx)", default="80")
+    port_mongo_express = prompt("  Mongo Express port (host)", default="8081")
+
     lines = [
         f"MONGO_ROOT_USERNAME={mongo_user}",
         f"MONGO_ROOT_PASSWORD={mongo_pass}",
@@ -142,6 +146,8 @@ def create_env():
         f"ADMIN_USERNAME={admin_user}",
         f"ADMIN_PASSWORD={admin_pass}",
         f"ADMIN_JWT_SECRET={jwt_secret}",
+        f"PORT_APP={port_app}",
+        f"PORT_MONGO_EXPRESS={port_mongo_express}",
     ]
     ENV_FILE.write_text("\n".join(lines) + "\n")
     # Restrict permissions so other users can't read secrets
@@ -269,11 +275,13 @@ def save_db():
 
 def print_summary():
     env = load_env()
+    port_app           = env.get("PORT_APP", "80")
+    port_mongo_express = env.get("PORT_MONGO_EXPRESS", "8081")
     print("\n\033[1;32m  Deployment complete!\033[0m\n")
     print("  Services:")
-    print("    Client (Vite dev)  →  http://localhost:8082")
-    print("    Server (API)       →  http://localhost:3100")
-    print("    Mongo Express      →  http://localhost:8081")
+    print(f"    App (via nginx)    →  http://localhost:{port_app}")
+    print(f"    API path           →  http://localhost:{port_app}/api")
+    print(f"    Mongo Express      →  http://localhost:{port_mongo_express}")
     print(f"\n  Mongo Express login:  {env.get('ME_CONFIG_BASICAUTH_USERNAME')} / <your password>")
     print(f"  Admin login:          {env.get('ADMIN_USERNAME')} / <your password>")
     print()
