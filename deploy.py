@@ -418,7 +418,7 @@ def cmd_up():
     mode = env.get("MODE", "prod").lower()
     print(f"\033[1m=== Humlab Project Database — Up ({mode}) ===\033[0m")
     check_prerequisites()
-    compose("up", "-d", "--build")
+    compose("up", "-d", "--build", "--force-recreate")
     print_summary()
 
 
