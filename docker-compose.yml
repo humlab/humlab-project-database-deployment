@@ -14,15 +14,11 @@ services:
     build:
       context: ./client/web
       dockerfile: docker/Dockerfile
-      target: dev
+      target: prod
     expose:
-      - "8081"
-    environment:
-      VITE_API_BASE_URL: /api
+      - "80"
     volumes:
-      - ./client/web:/app:Z
-      - /app/node_modules
-      - ./client/src/assets:/app/public/assets:ro
+      - ./client/src/assets:/usr/share/nginx/html/assets:ro
     depends_on:
       - server
 
