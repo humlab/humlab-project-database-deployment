@@ -28,8 +28,8 @@ services:
 
   server:
     build:
-      context: ./docker/server
-      dockerfile: Dockerfile
+      context: ./server
+      dockerfile: ../docker/server/Dockerfile
     expose:
       - "3100"
     volumes:
