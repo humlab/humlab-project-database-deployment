@@ -196,8 +196,14 @@ def reset_mongo_data():
     print_step("Stopping mongo container and wiping data")
     binary = detect_compose_binary()
     subprocess.run([*binary, "stop", "mongo"], cwd=ROOT, capture_output=True)
-    shutil.rmtree(MONGO_DATA_DIR)
-    MONGO_DATA_DIR.mkdir(parents=True)
+    # MongoDB files are owned by the mongodb user inside the container (uid 999),
+    # so we can't delete them as the host user. Run a temporary container instead.
+    run([
+        *binary, "run", "--rm",
+        "-v", f"{MONGO_DATA_DIR}:/data",
+        "alpine",
+        "sh", "-c", "rm -rf /data/* /data/.[!.]*",
+    ], cwd=ROOT)
     print_ok("MongoDB data wiped — will reinitialise with new credentials")
 
 
