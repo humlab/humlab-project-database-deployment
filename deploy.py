@@ -250,6 +250,7 @@ def restore_mongodb():
             f"--password={env['MONGO_ROOT_PASSWORD']}",
             "--authenticationDatabase=admin",
             "--drop",
+            "--nsExclude=admin.*",  # Don't restore admin users — would overwrite current credentials
             f"--archive={archive_path}",
         ],
         cwd=ROOT,
@@ -294,6 +295,7 @@ def save_db():
             f"--username={env['MONGO_ROOT_USERNAME']}",
             f"--password={env['MONGO_ROOT_PASSWORD']}",
             "--authenticationDatabase=admin",
+            "--nsExclude=admin.*",  # Don't dump admin users — avoids credential conflicts on restore
             f"--archive={container_path}",
         ],
         cwd=ROOT,
