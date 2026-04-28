@@ -1,0 +1,21 @@
+# Dev overrides — merged on top of docker-compose.yml when MODE=dev.
+# Switches the client to the Vite dev server (hot-reload) and updates the
+# nginx proxy accordingly.
+services:
+  nginx:
+    volumes:
+      - ./mounts/nginx/site.dev.conf:/etc/nginx/conf.d/default.conf:ro
+
+  client:
+    build:
+      context: ./client/web
+      dockerfile: docker/Dockerfile
+      target: dev
+    expose:
+      - "8081"
+    environment:
+      VITE_API_BASE_URL: /api
+    volumes:
+      - ./client/web:/app:Z
+      - /app/node_modules
+      - ./client/src/assets:/app/public/assets:ro

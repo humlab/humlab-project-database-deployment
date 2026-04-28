@@ -51,9 +51,13 @@ def run(cmd, **kwargs):
     return subprocess.run(cmd, check=True, **kwargs)
 
 def compose(*args):
-    """Run a podman/docker compose command."""
+    """Run a podman/docker compose command, merging the dev override when MODE=dev."""
     binary = detect_compose_binary()
-    run([*binary, *args], cwd=ROOT)
+    env = load_env()
+    files = ["-f", "docker-compose.yml"]
+    if env.get("MODE", "prod").lower() == "dev":
+        files += ["-f", "docker-compose.dev.yml"]
+    run([*binary, *files, *args], cwd=ROOT)
 
 def detect_compose_binary():
     """
@@ -172,6 +176,7 @@ def create_env():
     print()
     port_app           = prompt("  Public port (nginx)", default="80")
     port_mongo_express = prompt("  Mongo Express port (host)", default="8081")
+    mode               = prompt("  Mode (dev/prod)", default="prod")
 
     lines = [
         f"MONGO_ROOT_USERNAME={mongo_user}",
@@ -183,6 +188,7 @@ def create_env():
         f"ADMIN_JWT_SECRET={jwt_secret}",
         f"PORT_APP={port_app}",
         f"PORT_MONGO_EXPRESS={port_mongo_express}",
+        f"MODE={mode}",
     ]
     ENV_FILE.write_text("\n".join(lines) + "\n")
     # Restrict permissions so other users can't read secrets
