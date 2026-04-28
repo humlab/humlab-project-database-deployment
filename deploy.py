@@ -178,6 +178,29 @@ def copy_archive():
     shutil.copy2(ARCHIVE, dest)
     print_ok(f"Copied to {dest.relative_to(ROOT)}")
 
+def reset_mongo_data():
+    """Stop mongo and wipe its data dir so it re-initialises with current .env credentials."""
+    if not MONGO_DATA_DIR.exists() or not any(MONGO_DATA_DIR.iterdir()):
+        return  # Nothing to reset
+
+    print_warn(
+        "Existing MongoDB data found. During a fresh install this data must be\n"
+        "  removed so MongoDB can initialise with the credentials in .env.\n"
+        f"  Directory: {MONGO_DATA_DIR.relative_to(ROOT)}"
+    )
+    answer = input("  Wipe existing MongoDB data and start fresh? [y/N] ").strip().lower()
+    if answer != "y":
+        print_err("Cannot continue: MongoDB would reject the credentials in .env.")
+        sys.exit(1)
+
+    print_step("Stopping mongo container and wiping data")
+    binary = detect_compose_binary()
+    subprocess.run([*binary, "stop", "mongo"], cwd=ROOT, capture_output=True)
+    shutil.rmtree(MONGO_DATA_DIR)
+    MONGO_DATA_DIR.mkdir(parents=True)
+    print_ok("MongoDB data wiped — will reinitialise with new credentials")
+
+
 def start_mongo():
     print_step("Starting MongoDB container")
     compose("up", "-d", "--build", "mongo")
@@ -315,6 +338,7 @@ def cmd_install():
     create_env()
     create_directories()
     copy_archive()
+    reset_mongo_data()
     start_mongo()
     wait_for_mongo()
     restore_mongodb()
